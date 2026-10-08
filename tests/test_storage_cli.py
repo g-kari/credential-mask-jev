@@ -57,7 +57,7 @@ class StorageCliTests(unittest.TestCase):
         output.write_text("existing")
         with self.assertRaises(MaskingError):
             write_new(output, "replacement", ack_unprotected_storage=True)
-        self.assertEqual(output.read_text(), "existing")
+        self.assertEqual(output.read_text(encoding="utf-8"), "existing")
 
     @unittest.skipUnless(os.name == "posix", "POSIX permission verification")
     def test_public_session_file_rejected(self):
@@ -74,10 +74,10 @@ class StorageCliTests(unittest.TestCase):
         linked.symlink_to(target)
         with self.assertRaises(MaskingError):
             write_new(linked, "replacement")
-        self.assertEqual(target.read_text(), "existing")
+        self.assertEqual(target.read_text(encoding="utf-8"), "existing")
         self.save()
         map_path = self.session / SESSION_MAP
-        content = map_path.read_text()
+        content = map_path.read_text(encoding="utf-8")
         map_path.unlink()
         target.write_text(content)
         target.chmod(0o600)
@@ -95,7 +95,7 @@ class StorageCliTests(unittest.TestCase):
     def test_original_mapping_corruption_rejected(self):
         self.save()
         path = self.session / SESSION_MAP
-        value = json.loads(path.read_text())
+        value = json.loads(path.read_text(encoding="utf-8"))
         token = next(iter(value["mapping"]))
         value["mapping"][token] = "SYNTHETIC-CORRUPTION"
         path.write_text(json.dumps(value))
@@ -131,7 +131,7 @@ class StorageCliTests(unittest.TestCase):
 
     def test_cli_adapter_failure_writes_no_session(self):
         source = self.root / "source.txt"
-        source.write_text(self.text)
+        source.write_bytes(self.text.encode("utf-8"))
         with patch("credential_mask.cli.detect", side_effect=MaskingError("Local model request failed.")):
             code, _, _ = self.call(["prepare", "--input", str(source), "--session", str(self.session), "--allow-plaintext-map", "--djev-url", "http://127.0.0.1:8011", "--model", "local", "--ack-local-server"])
         self.assertEqual(code, 2)
@@ -139,7 +139,7 @@ class StorageCliTests(unittest.TestCase):
 
     def test_cli_without_plaintext_flag_writes_nothing(self):
         source = self.root / "source.txt"
-        source.write_text(self.text)
+        source.write_bytes(self.text.encode("utf-8"))
         self.assertEqual(self.call(["prepare", "--input", str(source), "--session", str(self.session)])[0], 2)
         self.assertFalse(self.session.exists())
 
