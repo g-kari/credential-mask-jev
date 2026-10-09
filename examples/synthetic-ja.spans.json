@@ -1,0 +1,20 @@
+{
+  "source_sha256": "c8358de245c4d4aedc89f44b5e42da06afdb0863211fcdd38a94c962002da6e8",
+  "spans": [
+    {
+      "start": 40,
+      "end": 44,
+      "category": "person"
+    },
+    {
+      "start": 49,
+      "end": 66,
+      "category": "address"
+    },
+    {
+      "start": 254,
+      "end": 259,
+      "category": "sensitive"
+    }
+  ]
+}

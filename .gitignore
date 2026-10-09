@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+.mask-session*/
+*.mask-map.json
+*.masked.txt
+*.restored.txt
+.DS_Store

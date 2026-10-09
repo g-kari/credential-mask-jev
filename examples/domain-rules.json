@@ -1,0 +1,7 @@
+{
+  "keys": {"contract_id": ["契約番号", "contract_ref"]},
+  "formats": [
+    {"category": "member_id", "prefix": "M-DEMO-", "alphabet": "0123456789", "min_suffix": 3, "max_suffix": 3},
+    {"category": "order_id", "prefix": "O-DEMO-", "alphabet": "0123456789", "min_suffix": 3, "max_suffix": 3}
+  ]
+}
