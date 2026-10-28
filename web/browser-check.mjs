@@ -63,6 +63,9 @@ try{
   assert.ok(await page.locator('#status').isVisible(),'Mask error stays visible in the active terms pane after resize');
   await documentView('source');
   // Selection-assisted text review: same exact value everywhere, never HTML interpretation.
+  await page.setViewportSize({width:1280,height:900});assert.ok(await page.locator('#download').isDisabled());
+  assert.notEqual(await page.locator('#download').evaluate(el=>getComputedStyle(el).backgroundColor),await page.locator('#mask').evaluate(el=>getComputedStyle(el).backgroundColor),'Unavailable save must look different from enabled primary action');
+  await page.setViewportSize({width:390,height:844});
   const selectionSource='架空🧑‍💻さん と 架空🧑‍💻さん <img src=x onerror=alert(1)>';
   await page.locator('#source').fill(selectionSource);
   await page.locator('#source').evaluate(el=>{el.focus();el.setSelectionRange(0,'架空🧑‍💻さん'.length);});

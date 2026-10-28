@@ -12,3 +12,5 @@
 .selection-tools{display:flex;flex-wrap:wrap;gap:8px}.selection-tools button{font-size:.75rem;flex:1;white-space:normal}.source-pane .pane-footer{align-content:start}#review-panel{margin-top:12px;border-top:1px solid var(--line);padding-top:12px}#review-panel h3{font-size:.85rem}#review-summary{font-size:.75rem;color:var(--muted)}#review-content{white-space:pre-wrap;overflow-wrap:anywhere;max-height:360px;overflow:auto;padding:12px;background:var(--canvas);font:inherit;font-size:1rem;line-height:1.8}#review-content mark{background:#4d436b;color:#fff;border-bottom:2px solid #c8baff;border-radius:2px}#review-content:focus-visible{outline:2px solid #e3c27b;outline-offset:2px}
 
 @media(min-width:721px){.editor-grid .document-text{flex:0 0 auto;height:max(420px,calc(100svh - 480px))}}
+
+button.primary:disabled{background:#2b3039;color:#a9b1be;border-color:var(--line);cursor:not-allowed}
