@@ -52,3 +52,11 @@ Official references (checked 2026-10-28):
 - https://developers.cloudflare.com/workers/configuration/routing/custom-domains/
 
 Static-asset requests and storage are free under the documented Workers static-assets model; this configuration deliberately has no Worker handler. Hosting access metadata is distinct from document contents, which remain in the browser.
+
+## UI refresh (2026-10-28)
+
+The workspace now places source and masked output side by side on desktop, stacks them on narrow screens, and separates reply restoration from encrypted-map management. Every existing control and processing module is preserved; no runtime dependency, external font or network path was added. Format limitations remain available beside file controls, and the anonymization warning stays visible.
+
+Design guidance: official UI UX Pro Max skill (MIT), upstream commit `28b3b8dee8c976df4fa3e94aed4e092ad43fcb03`, https://github.com/nextlevelbuilder/ui-ux-pro-max-skill . The verified Minimalism/Swiss style result informed grid, spacing and contrast; automatically suggested marketing landing-page layouts were rejected for this operational tool. Japanese system fonts and the existing local-only security model take precedence over external asset recommendations.
+
+CI installs Japanese system fonts only in its ephemeral runner (no app font download), then additionally checks 390px/1280px overflow, 44px action targets, visible keyboard focus, and saves synthetic-only screenshots for visual review. Screenshot artifacts are excluded from the deployed allowlist. A successful test is not a complete accessibility or security audit; actual mobile devices and other browsers remain unverified.

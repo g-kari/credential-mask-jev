@@ -24,5 +24,14 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: web
       - run: command -v google-chrome && google-chrome --version
+      - run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+      - run: fc-match :lang=ja
       - run: node browser-check.mjs
         working-directory: web
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: mask-ui-synthetic-screenshots
+          path: web/visual-evidence/*.png
+          if-no-files-found: error
+          retention-days: 7
