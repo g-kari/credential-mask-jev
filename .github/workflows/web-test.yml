@@ -22,7 +22,6 @@ jobs:
       - run: node --test web/*.test.mjs
       - run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: web
-      - run: npx --no-install playwright install chromium
-        working-directory: web
+      - run: command -v google-chrome && google-chrome --version
       - run: node browser-check.mjs
         working-directory: web

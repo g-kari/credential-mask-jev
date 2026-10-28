@@ -35,7 +35,7 @@ try{
  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
  const origin=`http://127.0.0.1:${server.address().port}`;
  const checks=async()=>{
-  browser=await chromium.launch({headless:true,chromiumSandbox:true,timeout:30000});
+  browser=await chromium.launch({channel:'chrome',headless:true,chromiumSandbox:true,timeout:30000});
   context=await browser.newContext({viewport:{width:390,height:844},acceptDownloads:true,serviceWorkers:'block'});
   context.setDefaultTimeout(30000);context.setDefaultNavigationTimeout(30000);
   const external=[],pageErrors=[],workers=[];

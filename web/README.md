@@ -32,9 +32,10 @@ Browser integration and deployment verification are pending. The visible develop
 ### Synthetic browser acceptance check
 
 Development only: `npm ci --ignore-scripts --no-audit --no-fund`,
-`npx --no-install playwright install chromium`, then `node browser-check.mjs`.
+then `node browser-check.mjs` with an installed official Google Chrome.
 The exact Playwright version is locked. The check uses synthetic text/workbooks,
 a loopback-only test server with the site's response headers, and Chromium's
-sandbox enabled. It does not require account credentials or production data.
+sandbox enabled. CI uses the runner's preinstalled official Chrome channel and
+records its version; it does not disable AppArmor or the browser sandbox. It does not require account credentials or production data.
 Official CI setup: https://playwright.dev/docs/ci . Passing Node tests alone does
 not establish browser compatibility; check the browser step's actual result.
