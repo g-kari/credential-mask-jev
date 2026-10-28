@@ -1,3 +1,4 @@
+import {selectedTerm,reviewSegments} from './selection-review.mjs';
 import {candidates,mask,restore,parseDelimited,serializeDelimited,seal,unseal} from './core.mjs';
 import {maskWorkbook,workbookPreview} from './workbook-mask.mjs';
 const $=id=>document.getElementById(id);let mapping=[],resultFormat='text',busy=false,workbook=null,selectedSheets=null,maskedWorkbook=null;
@@ -11,7 +12,7 @@ const run=fn=>async(event)=>{if(busy)return;const trigger=event?.currentTarget;b
  }
 }};
 function save(value,name,type){const url=URL.createObjectURL(new Blob([value],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-function dirty(){ $('output').value='';$('restored').value='';$('download').disabled=true;maskedWorkbook=null; }
+function dirty(){ $('review-content').replaceChildren();$('review-panel').hidden=true;$('review-summary').textContent=''; $('output').value='';$('restored').value='';$('download').disabled=true;maskedWorkbook=null; }
 function resetWorkbook(){workbook=null;selectedSheets=null;$('sheet-panel').hidden=true;$('sheet-list').replaceChildren();$('include-hidden').checked=false;$('source').readOnly=false;}
 const previewSheets=workbookPreview;
 $('source').addEventListener('input',dirty);$('terms').addEventListener('input',dirty);$('format').addEventListener('change',dirty);
@@ -74,3 +75,20 @@ $('mask').onclick=async event=>{await confirmMask(event);if($('output').value){s
 document.querySelector('.skip-link').addEventListener('click',event=>{event.preventDefault();if(busy)return;showMode('mask');showDocument('source');$('source').focus();});
 
 matchMedia('(max-width:720px)').addEventListener('change',event=>{if($('status').dataset.action==='mask'){if(event.matches&&document.body.dataset.document==='output')document.querySelector('.output-toolbar').after($('status'));else $('mask').after($('status'));}});
+
+// Explicit, local-only review; a mark shows a configured match, never detection completeness.
+$('add-selection').onclick=run(()=>{
+ if($('format').value!=='text')throw Error('選択追加はテキスト形式のみです。表は隠す語句欄で指定してください');
+ const result=selectedTerm($('source').value,$('source').selectionStart,$('source').selectionEnd,$('terms').value);
+ if(result.added){$('terms').value=result.terms.join('\n');dirty();}
+ status(result.added?'選択した語句を追加しました。同じ表記の全箇所が対象です。前後の空白も保持します。':'この語句は追加済みです。');
+});
+$('review-matches').onclick=run(()=>{
+ $('review-content').replaceChildren();$('review-panel').hidden=true;$('review-summary').textContent='';
+ if($('format').value!=='text')throw Error('ハイライトはテキスト形式のみです。表はセルの原文とマスク結果を照合してください');
+ const result=reviewSegments($('source').value,$('terms').value.split('\n').filter(Boolean));
+ const fragment=document.createDocumentFragment();
+ for(const segment of result.segments){const node=document.createElement(segment.marked?'mark':'span');node.textContent=segment.text;fragment.append(node);}
+ $('review-content').append(fragment);$('review-summary').textContent=`${result.terms}語句・${result.count}箇所。色のない部分にも個人情報が残る可能性があります。`;
+ $('review-panel').hidden=false;status('適用予定箇所を表示しました。原文と指定語を変えると確認表示は消えます。');
+});

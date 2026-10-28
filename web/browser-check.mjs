@@ -62,6 +62,27 @@ try{
   await page.setViewportSize({width:1280,height:900});await page.setViewportSize({width:390,height:844});
   assert.ok(await page.locator('#status').isVisible(),'Mask error stays visible in the active terms pane after resize');
   await documentView('source');
+  // Selection-assisted text review: same exact value everywhere, never HTML interpretation.
+  const selectionSource='架空🧑‍💻さん と 架空🧑‍💻さん <img src=x onerror=alert(1)>';
+  await page.locator('#source').fill(selectionSource);
+  await page.locator('#source').evaluate(el=>{el.focus();el.setSelectionRange(0,'架空🧑‍💻さん'.length);});
+  await click('#add-selection');assert.equal(await page.locator('#terms').inputValue(),'架空🧑‍💻さん');
+  await click('#add-selection');assert.match(await page.locator('#status').innerText(),/追加済み/);
+  await click('#review-matches');assert.equal(await page.locator('#review-content mark').count(),2);
+  assert.equal(await page.locator('#review-content').textContent(),selectionSource);assert.equal(await page.locator('#review-content img').count(),0);
+  for(const width of [390,1280]){
+   await page.setViewportSize({width,height:900});await page.locator('#review-panel').scrollIntoViewIfNeeded();
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+   for(const id of ['add-selection','review-matches'])assert.ok((await page.locator('#'+id).boundingBox()).height>=44);
+   await fs.mkdir(path.join(base,'visual-evidence'),{recursive:true});
+   await page.screenshot({path:path.join(base,'visual-evidence',`selection-review-${width}.png`),fullPage:true});
+  }
+  await page.setViewportSize({width:390,height:844});
+  await page.locator('#source').fill('変えた原文');assert.ok(await page.locator('#review-panel').isHidden());assert.equal(await page.locator('#review-content').textContent(),'');
+  await page.locator('#source').evaluate(el=>el.setSelectionRange(0,0));await click('#add-selection');assert.match(await page.locator('#status').innerText(),/選択してください/);
+  await page.locator('#format').selectOption('csv');await click('#review-matches');assert.match(await page.locator('#status').innerText(),/テキスト形式のみ/);assert.ok(await page.locator('#review-panel').isHidden());
+  await page.locator('#format').selectOption('text');
+  await documentView('terms');await page.locator('#terms').fill('');await documentView('source');
   const original='合成人名サンプルです。synthetic@example.test\n電話090-1111-2222';
   await page.locator('#source').fill(original);await documentView('terms');await click('#detect');
   await page.locator('#terms').fill((await page.locator('#terms').inputValue())+'\n合成人名サンプル');await click('#mask');
