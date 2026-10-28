@@ -50,30 +50,47 @@ try{
   const actualHeaders=await response.allHeaders();for(const [name,value] of Object.entries(headers))assert.equal(actualHeaders[name.toLowerCase()],value);
   const idle=()=>page.waitForFunction(()=>!document.querySelector('main').hasAttribute('aria-busy'));
   const click=async selector=>{await page.locator(selector).click();await idle();};
+  const mode=async value=>{await page.locator(`.studio-header [data-mode="${value}"]`).click();};
+  const documentView=async value=>{const button=page.locator(`.document-switch [data-document="${value}"]`);if(await button.isVisible())await button.click();};
+  for(const [value,ids] of [['restore',['restore']],['map',['export','clear']]]){
+   await mode(value);for(const id of ids){const box=await page.locator('#'+id).boundingBox();assert.ok(box&&box.height>=44,`${id} must have a 44px target in its mode`);}
+  }
+  await page.locator('.skip-link').focus();await page.locator('.skip-link').click();assert.ok(await page.locator('#source').isVisible(),'Skip link opens the source from map mode');
+  await documentView('terms');await page.locator('.skip-link').focus();await page.locator('.skip-link').click();assert.ok(await page.locator('#source').isVisible(),'Skip link opens source from narrow terms view');
   const original='合成人名サンプルです。synthetic@example.test\n電話090-1111-2222';
-  await page.locator('#source').fill(original);await click('#detect');
+  await page.locator('#source').fill(original);await documentView('terms');await click('#detect');
   await page.locator('#terms').fill((await page.locator('#terms').inputValue())+'\n合成人名サンプル');await click('#mask');
-  const masked=await page.locator('#output').inputValue();
+  let masked=await page.locator('#output').inputValue();assert.ok(await page.locator('#status').isVisible(),'Mask status remains in the active narrow result view');
   // Synthetic-only visual evidence, kept out of the static build allowlist.
   await fs.mkdir(path.join(base,'visual-evidence'),{recursive:true});
   for(const width of [390,1280]){
    await page.setViewportSize({width,height:900});
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Page must not overflow horizontally');
-   for(const id of ['mask','detect','download','restore','export','clear']){
+   for(const id of ['mask','detect','download']){
+    if(!await page.locator('#'+id).isVisible())continue;
     const box=await page.locator('#'+id).boundingBox();assert.ok(box&&box.height>=44,`${id} must have a 44px touch target`);
    }
-   await page.locator('#mask').focus();await page.keyboard.press('Tab');await page.keyboard.press('Shift+Tab');
-   assert.ok(await page.locator('#mask').evaluate(el=>{const s=getComputedStyle(el);return s.outlineStyle!=='none'&&parseFloat(s.outlineWidth)>=2;}),'Keyboard focus must remain visible');
+   const focusTarget=width<720?'#download':'#mask';await page.locator(focusTarget).focus();await page.keyboard.press('Tab');await page.keyboard.press('Shift+Tab');
+   assert.ok(await page.locator(focusTarget).evaluate(el=>{const s=getComputedStyle(el);return s.outlineStyle!=='none'&&parseFloat(s.outlineWidth)>=2;}),'Keyboard focus must remain visible');
+   if(width>=1100){
+    const sourceBox=await page.locator('#source').boundingBox(),outputBox=await page.locator('#output').boundingBox();
+    assert.ok(Math.abs(sourceBox.y-outputBox.y)<2,'Source and result text start on the same baseline');
+    assert.ok(Math.abs(sourceBox.height-outputBox.height)<2,'Document editing areas have equal heights');
+   }
    await page.screenshot({path:path.join(base,'visual-evidence',`workspace-${width}.png`),fullPage:true});
   }
   await page.setViewportSize({width:390,height:844});
+  // Switching modes repeatedly must preserve documents and the live map.
+  await mode('map');await mode('mask');await mode('restore');await mode('mask');
+  assert.equal(await page.locator('#source').inputValue(),original);assert.equal(await page.locator('#output').inputValue(),masked);
+  await mode('restore');
   for(const term of ['合成人名サンプル','synthetic@example.test','090-1111-2222'])assert.ok(!masked.includes(term));
   assert.ok(masked.includes('[[MASK_'));
   await page.locator('#reply').fill(masked);await click('#restore');assert.equal(await page.locator('#restored').inputValue(),original);
   await page.locator('#reply').fill('[[MASK_broken');assert.equal(await page.locator('#restored').inputValue(),'');
   await click('#restore');assert.equal(await page.locator('#restored').inputValue(),'');
   assert.ok(await page.locator('#status').evaluate(el=>{const r=el.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight;}),'Restore error feedback must be in the viewport');
-  await page.locator('#password').fill('synthetic-passphrase');
+  await mode('map');await page.locator('#password').fill('synthetic-passphrase');
   const encryptedPromise=page.waitForEvent('download');await click('#export');const encrypted=await encryptedPromise;
   assert.equal(encrypted.suggestedFilename(),'private-map.encrypted.json');assert.equal(await page.locator('#password').inputValue(),'');
   const encryptedPath=await encrypted.path();assert.ok(encryptedPath);
@@ -83,10 +100,11 @@ try{
   await click('#clear');assert.equal(await page.locator('#source').inputValue(),'');assert.ok(await page.locator('#download').isDisabled());
   await page.locator('#password').fill('synthetic-passphrase');await page.locator('#import').setInputFiles(encryptedPath);await idle();
   assert.equal(await page.locator('#password').inputValue(),'');assert.match(await page.locator('#status').innerText(),/読み込みました/);
-  await page.locator('#reply').fill(masked);await click('#restore');assert.equal(await page.locator('#restored').inputValue(),original);
+  await mode('restore');await page.locator('#reply').fill(masked);await click('#restore');assert.equal(await page.locator('#restored').inputValue(),original);
+  await mode('mask');await documentView('source');
   // Editing input invalidates both visible output and downloadable workbook state.
   await page.locator('#source').fill('new synthetic input');assert.equal(await page.locator('#output').inputValue(),'');assert.equal(await page.locator('#restored').inputValue(),'');assert.ok(await page.locator('#download').isDisabled());
-  await click('#clear');
+  await mode('map');await click('#clear');await mode('mask');await documentView('source');
 
   // Fixture uses the application's runtime writer, then edits bounded OOXML bytes only.
   const seeds=['合成氏名エクセル','xlsx@example.test','隠し合成氏名'];
@@ -105,7 +123,7 @@ try{
   assert.match(await page.locator('#sheet-list').innerText(),/隠し状態2/);assert.match(await page.locator('#sheet-list').innerText(),/隠し行: 1/);
   await sheets.nth(1).check();await click('#select-sheets');assert.match(await page.locator('#status').innerText(),/確認が必要/);assert.equal(await page.locator('#source').inputValue(),'');
   await page.locator('#include-hidden').check();await click('#select-sheets');const preview=await page.locator('#source').inputValue();for(const seed of seeds)assert.ok(preview.includes(seed));
-  await page.locator('#terms').fill(seeds.join('\n'));await click('#mask');const xlsxMasked=await page.locator('#output').inputValue();for(const seed of seeds)assert.ok(!xlsxMasked.includes(seed));
+  await documentView('terms');await page.locator('#terms').fill(seeds.join('\n'));await click('#mask');const xlsxMasked=await page.locator('#output').inputValue();for(const seed of seeds)assert.ok(!xlsxMasked.includes(seed));
   const xlsxDownloadPromise=page.waitForEvent('download');await click('#download');const downloaded=await xlsxDownloadPromise;
   assert.equal(downloaded.suggestedFilename(),'masked.xlsx');const downloadedPath=await downloaded.path();assert.ok(downloadedPath);
   const outputBytes=new Uint8Array(await fs.readFile(downloadedPath));
@@ -115,9 +133,9 @@ try{
   for(const sheet of inspected.sheets){assert.equal(sheet.hidden,0);assert.deepEqual(sheet.hiddenRowPositions,[]);assert.deepEqual(sheet.hiddenColumnPositions,[]);}
   const unzipped=(await boundedZip(outputBytes)).map(([,bytes])=>dec.decode(bytes)).join('\n');for(const seed of seeds)assert.ok(!unzipped.includes(seed));
   assert.ok(workers.some(url=>url===origin+'/xlsx-worker.mjs'),'Actual local XLSX Worker was created');
-  await page.locator('#file').setInputFiles({name:'unsupported.bin',mimeType:'application/octet-stream',buffer:Buffer.from('synthetic invalid input')});await idle();
+  await documentView('source');await page.locator('#file').setInputFiles({name:'unsupported.bin',mimeType:'application/octet-stream',buffer:Buffer.from('synthetic invalid input')});await idle();
   assert.match(await page.locator('#status').innerText(),/未対応形式/);assert.equal(await page.locator('#source').inputValue(),'');assert.equal(await page.locator('#output').inputValue(),'');assert.ok(await page.locator('#download').isDisabled());
-  await click('#clear');assert.equal(await page.locator('#sheet-panel').isHidden(),true);assert.equal(await page.locator('#source').inputValue(),'');assert.equal(await page.locator('#password').inputValue(),'');assert.ok(await page.locator('#download').isDisabled());
+  await mode('map');await click('#clear');assert.equal(await page.locator('#sheet-panel').isHidden(),true);assert.equal(await page.locator('#source').inputValue(),'');assert.equal(await page.locator('#password').inputValue(),'');assert.ok(await page.locator('#download').isDisabled());
   assert.equal(await page.evaluate(()=>localStorage.length),0);assert.equal(await page.evaluate(()=>sessionStorage.length),0);
   assert.deepEqual(external,[],'Unexpected outbound request attempt');assert.deepEqual(pageErrors,[]);
   console.log('PASS: response headers, mobile text mask/restore, stale/error clearing, encrypted map correct/wrong passwords, reset, actual XLSX Worker hidden consent and downloaded values/type checks; no external request attempts or Web Storage entries observed.');
