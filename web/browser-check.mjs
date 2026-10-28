@@ -57,6 +57,11 @@ try{
   }
   await page.locator('.skip-link').focus();await page.locator('.skip-link').click();assert.ok(await page.locator('#source').isVisible(),'Skip link opens the source from map mode');
   await documentView('terms');await page.locator('.skip-link').focus();await page.locator('.skip-link').click();assert.ok(await page.locator('#source').isVisible(),'Skip link opens source from narrow terms view');
+  await page.locator('#source').fill('[[MASK_reserved');await documentView('terms');await click('#mask');
+  assert.match(await page.locator('#status').innerText(),/予約済み/);
+  await page.setViewportSize({width:1280,height:900});await page.setViewportSize({width:390,height:844});
+  assert.ok(await page.locator('#status').isVisible(),'Mask error stays visible in the active terms pane after resize');
+  await documentView('source');
   const original='合成人名サンプルです。synthetic@example.test\n電話090-1111-2222';
   await page.locator('#source').fill(original);await documentView('terms');await click('#detect');
   await page.locator('#terms').fill((await page.locator('#terms').inputValue())+'\n合成人名サンプル');await click('#mask');

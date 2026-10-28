@@ -73,4 +73,4 @@ $('mask').onclick=async event=>{await confirmMask(event);if($('output').value){s
 
 document.querySelector('.skip-link').addEventListener('click',event=>{event.preventDefault();if(busy)return;showMode('mask');showDocument('source');$('source').focus();});
 
-matchMedia('(max-width:720px)').addEventListener('change',event=>{if($('status').dataset.action==='mask'){if(event.matches)document.querySelector('.output-toolbar').after($('status'));else $('mask').after($('status'));}});
+matchMedia('(max-width:720px)').addEventListener('change',event=>{if($('status').dataset.action==='mask'){if(event.matches&&document.body.dataset.document==='output')document.querySelector('.output-toolbar').after($('status'));else $('mask').after($('status'));}});
