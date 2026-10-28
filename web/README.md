@@ -39,3 +39,16 @@ sandbox enabled. CI uses the runner's preinstalled official Chrome channel and
 records its version; it does not disable AppArmor or the browser sandbox. It does not require account credentials or production data.
 Official CI setup: https://playwright.dev/docs/ci . Passing Node tests alone does
 not establish browser compatibility; check the browser step's actual result.
+
+## Workers static-assets migration
+
+The root `wrangler.jsonc` targets `mask.0g0.xyz` with static assets only: no server handler, API, storage binding, secret, preview URL or workers.dev hostname. Build the same 17-file allowlist with `node web/build-static.mjs`; `_headers` remains in the asset directory and is interpreted by Workers, not served as source. Unknown paths use normal 404 handling, not SPA fallback.
+
+Deployment is a separate authenticated operation, not part of tests. Recheck account ownership and hostname conflicts before deploying. Do not create tokens or expand permissions to bypass a failed deployment. Keep the existing Pages deployment until the Workers HTTPS response, all served asset hashes and all six response headers have been verified. This configuration alone does not establish a successful migration.
+
+Official references (checked 2026-10-28):
+- https://developers.cloudflare.com/workers/static-assets/migration-guides/migrate-from-pages/
+- https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/
+- https://developers.cloudflare.com/workers/configuration/routing/custom-domains/
+
+Static-asset requests and storage are free under the documented Workers static-assets model; this configuration deliberately has no Worker handler. Hosting access metadata is distinct from document contents, which remain in the browser.

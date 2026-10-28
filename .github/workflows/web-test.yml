@@ -2,9 +2,9 @@ name: web-synthetic-tests
 on:
   push:
     branches: [main]
-    paths: ['web/**', '.github/workflows/web-test.yml']
+    paths: ['web/**', 'wrangler.jsonc', '.github/workflows/web-test.yml']
   pull_request:
-    paths: ['web/**', '.github/workflows/web-test.yml']
+    paths: ['web/**', 'wrangler.jsonc', '.github/workflows/web-test.yml']
 permissions:
   contents: read
 concurrency:
