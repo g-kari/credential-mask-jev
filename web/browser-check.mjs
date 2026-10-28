@@ -71,6 +71,12 @@ try{
   for(const width of [390,1280]){
    await page.setViewportSize({width,height:900});
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Page must not overflow horizontally');
+   if(width<720){
+    const brand=await page.locator('.brand').boundingBox(),utility=await page.locator('.header-utility').boundingBox(),switcher=await page.locator('.mode-switch').boundingBox();
+    assert.ok(brand.x+brand.width<=utility.x+1,'Brand and mapping utility must not overlap');
+    assert.ok(switcher.y>=brand.y+brand.height,'Mobile mode switch has its own row');
+    assert.equal(await page.locator('.mode-switch button').first().evaluate(el=>getComputedStyle(el).whiteSpace),'nowrap');
+   }
    for(const id of ['mask','detect','download']){
     if(!await page.locator('#'+id).isVisible())continue;
     const box=await page.locator('#'+id).boundingBox();assert.ok(box&&box.height>=44,`${id} must have a 44px touch target`);
