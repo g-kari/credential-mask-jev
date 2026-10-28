@@ -54,11 +54,25 @@ try{
   await page.locator('#source').fill(original);await click('#detect');
   await page.locator('#terms').fill((await page.locator('#terms').inputValue())+'\n合成人名サンプル');await click('#mask');
   const masked=await page.locator('#output').inputValue();
+  // Synthetic-only visual evidence, kept out of the static build allowlist.
+  await fs.mkdir(path.join(base,'visual-evidence'),{recursive:true});
+  for(const width of [390,1280]){
+   await page.setViewportSize({width,height:900});
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Page must not overflow horizontally');
+   for(const id of ['mask','detect','download','restore','export','clear']){
+    const box=await page.locator('#'+id).boundingBox();assert.ok(box&&box.height>=44,`${id} must have a 44px touch target`);
+   }
+   await page.locator('#mask').focus();await page.keyboard.press('Tab');await page.keyboard.press('Shift+Tab');
+   assert.ok(await page.locator('#mask').evaluate(el=>{const s=getComputedStyle(el);return s.outlineStyle!=='none'&&parseFloat(s.outlineWidth)>=2;}),'Keyboard focus must remain visible');
+   await page.screenshot({path:path.join(base,'visual-evidence',`workspace-${width}.png`),fullPage:true});
+  }
+  await page.setViewportSize({width:390,height:844});
   for(const term of ['合成人名サンプル','synthetic@example.test','090-1111-2222'])assert.ok(!masked.includes(term));
   assert.ok(masked.includes('[[MASK_'));
   await page.locator('#reply').fill(masked);await click('#restore');assert.equal(await page.locator('#restored').inputValue(),original);
   await page.locator('#reply').fill('[[MASK_broken');assert.equal(await page.locator('#restored').inputValue(),'');
   await click('#restore');assert.equal(await page.locator('#restored').inputValue(),'');
+  assert.ok(await page.locator('#status').evaluate(el=>{const r=el.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight;}),'Restore error feedback must be in the viewport');
   await page.locator('#password').fill('synthetic-passphrase');
   const encryptedPromise=page.waitForEvent('download');await click('#export');const encrypted=await encryptedPromise;
   assert.equal(encrypted.suggestedFilename(),'private-map.encrypted.json');assert.equal(await page.locator('#password').inputValue(),'');

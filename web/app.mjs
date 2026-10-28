@@ -3,7 +3,13 @@ import {maskWorkbook,workbookPreview} from './workbook-mask.mjs';
 const $=id=>document.getElementById(id);let mapping=[],resultFormat='text',busy=false,workbook=null,selectedSheets=null,maskedWorkbook=null;
 const xlsx=()=>import('./xlsx-client.mjs');
 const status=s=>{$('status').textContent=s;};
-const run=fn=>async()=>{if(busy)return;busy=true;const main=document.querySelector('main');main.inert=true;main.setAttribute('aria-busy','true');try{await fn();}catch(e){status(e.name==='OperationError'?'復号できません。パスフレーズかファイルを確認してください。':e.message);}finally{busy=false;main.inert=false;main.removeAttribute('aria-busy');}};
+const run=fn=>async(event)=>{if(busy)return;const trigger=event?.currentTarget;busy=true;const main=document.querySelector('main');main.inert=true;main.setAttribute('aria-busy','true');try{await fn();}catch(e){status(e.name==='OperationError'?'復号できません。パスフレーズかファイルを確認してください。':e.message);}finally{busy=false;main.inert=false;main.removeAttribute('aria-busy');
+ // Keep feedback beside the initiating control, never over a focused field.
+ if(trigger instanceof HTMLElement&&main.contains(trigger)&&$('status').textContent){
+  const anchor=trigger.closest('.terms-heading,.file-controls')??trigger.closest('label')??trigger;
+  anchor.after($('status'));$('status').scrollIntoView({block:'nearest',behavior:'instant'});
+ }
+}};
 function save(value,name,type){const url=URL.createObjectURL(new Blob([value],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function dirty(){ $('output').value='';$('restored').value='';$('download').disabled=true;maskedWorkbook=null; }
 function resetWorkbook(){workbook=null;selectedSheets=null;$('sheet-panel').hidden=true;$('sheet-list').replaceChildren();$('include-hidden').checked=false;$('source').readOnly=false;}

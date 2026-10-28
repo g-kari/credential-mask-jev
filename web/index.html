@@ -1,15 +1,53 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'none'; worker-src 'self'; img-src 'none'; base-uri 'none'; form-action 'none'">
-<title>ことばの預かり箱 — 可逆マスク試作</title><link rel="stylesheet" href="style.css"><script type="module" src="app.mjs"></script></head>
-<body><header><h1>ことばの預かり箱</h1><p>AIに渡す文章から、個人情報をいったん取り分ける。</p><strong>試用版・Chromeの合成データで動作確認済み。まず架空のデータでお試しください</strong></header>
-<main><aside><b>仮名化であり、完全な匿名化ではありません。</b> 文脈・職業・日付などから本人が推測されることがあります。自動候補には見逃しがあります。入力・対応表はこのページのメモリで扱い、外部送信しない設計です。ブラウザー拡張や端末自体の安全性は別途必要です。</aside>
-<section><h2>1. 元の文章・表</h2><label>形式<select id="format"><option value="text">テキスト</option><option value="csv">CSV（UTF-8）</option><option value="tsv">TSV（UTF-8）</option><option value="xlsx">Excel（.xlsx・値のみ）</option></select></label>
-<label>ファイルを開く（2 MB以下）<input id="file" type="file" accept=".txt,.csv,.tsv,.xlsx"></label><p class="hint">Excelは数式を含むブックを拒否します。値のみ新しいブックに再構成し、書式・コメント・リンク・画像・元のシート名は保持しません。日付はExcelの数値になる場合があります。旧xls・xlsm・PDF・Wordは未対応です。</p>
-<div id="sheet-panel" hidden><h3>取り出すシート</h3><div id="sheet-list"></div><label><input id="include-hidden" type="checkbox">表示された隠しシート・隠し行列の内容を含めることを確認しました</label><button id="select-sheets">選択したセルをプレビュー</button><p id="workbook-warnings" class="hint"></p></div>
-<label>元の内容<textarea id="source" rows="8" autocomplete="off" spellcheck="false" placeholder="合成データで試してください"></textarea></label><button id="detect">メール・電話の候補を追加</button>
-<label>置き換える語句（1行に1件・完全一致）<textarea id="terms" rows="5" autocomplete="off" spellcheck="false" placeholder="人名・住所などはここへ手動で指定"></textarea></label>
-<p class="hint">候補を自分で確認・編集してから確定します。不要な候補は削除してください。CSV/TSVは全セル（見出しも含む）を対象にします。</p><button id="mask" class="primary">指定した語句でマスクを確定</button></section>
-<section><h2>2. AIに渡す内容</h2><label>マスク後の内容<textarea id="output" rows="8" readonly></textarea></label><p class="hint">未指定の情報は残ります。送信前に必ず目視してください。AIへの自動送信機能はありません。</p><button id="download" disabled>マスク済みファイルを保存</button><p class="hint">CSV/TSVは値のみ出力します。数式開始記号のセルには安全化のため先頭に ' を追加し、改行・引用形式も再構成します。元ファイルのバイト単位の復元や数式維持は保証しません。</p></section>
-<section><h2>3. AIの返答を元の表記に戻す</h2><label>マスク記号を含む返答<textarea id="reply" rows="6" autocomplete="off" spellcheck="false"></textarea></label><button id="restore">対応表を使って復元</button><label>復元結果（個人情報を含みます）<textarea id="restored" rows="6" readonly></textarea></label><p class="hint">AIが変更・省略した記号は戻せません。未知・認識可能な壊れた記号があれば復元を停止します。対応表の内容をAIへ渡さないでください。</p></section>
-<section><h2>対応表を自分で保管する</h2><p>初期状態では自動保存しません。ページを閉じると失われます。必要な場合だけ暗号化ファイルとして保存してください。パスフレーズを忘れると復元できません。</p><label>保存・読み込み用パスフレーズ（12文字以上）<input id="password" type="password" autocomplete="new-password"></label><button id="export">対応表を暗号化して保存</button><label>暗号化対応表を読み込む（現在の表を置換）<input id="import" type="file" accept=".json"></label><button id="clear">入力・対応表をすべて消す</button><p class="hint">消去は表示と参照の破棄です。端末メモリの完全消去やダウンロード済みファイルの削除は保証しません。</p></section>
-<p id="status" role="status" aria-live="polite"></p></main><footer>通信なし・外部フォントなし・解析タグなしの静的Webアプリ候補</footer></body></html>
+<title>ことばの預かり箱 — 可逆マスク試用版</title>
+<link rel="stylesheet" href="style.css"><script type="module" src="app.mjs"></script>
+</head>
+<body>
+<a class="skip-link" href="#workspace">入力へ移動</a>
+<header class="app-header">
+ <div class="brand"><span class="brand-mark" aria-hidden="true">[ ]</span><div><h1>ことばの預かり箱</h1><p>渡す前に隠す。返ってきたら戻す。</p></div></div>
+ <span class="local-badge">ブラウザー内で処理 <span>試用版</span></span>
+</header>
+<main id="workspace">
+ <div class="workspace-heading"><div><h2>AIに渡す文章を準備する</h2><p>原文とマスク後を見比べて、共有する情報を自分で選びます。</p></div><nav aria-label="作業メニュー"><a href="#restore-section">返答を復元</a><a href="#map-section">対応表の管理</a></nav></div>
+ <aside class="privacy-note"><strong>完全な匿名化ではありません。</strong> 人名・住所・文脈には見逃しがあります。未指定の情報が残っていないか、送信前に必ず確認してください。<details><summary>データの扱いと試用版について</summary><p>入力・対応表はこのページのメモリで扱い、外部送信しない設計です。自動保存はしません。文脈・職業・日付などから本人が推測されることがあります。ブラウザー拡張や端末自体の安全性は別途必要です。Chromeの合成データで動作確認した試用版です。まず架空のデータでお試しください。</p></details></aside>
+ <div class="workspace-grid">
+  <section class="panel input-panel" aria-labelledby="input-heading">
+   <div class="panel-heading"><span class="step">1</span><div><h3 id="input-heading">原文と隠す語句</h3><p>文章を貼り付けるか、ファイルを開きます。</p></div></div>
+   <div class="file-controls"><label for="format">形式<select id="format"><option value="text">テキスト</option><option value="csv">CSV（UTF-8）</option><option value="tsv">TSV（UTF-8）</option><option value="xlsx">Excel（.xlsx・値のみ）</option></select></label><label for="file">ファイルを開く <span class="label-note">2 MB以下</span><input id="file" type="file" accept=".txt,.csv,.tsv,.xlsx" aria-describedby="format-help"></label></div>
+   <details class="format-details"><summary>対応形式・Excelの制限</summary><p id="format-help" class="hint">Excelは数式を含むブックを拒否します。値のみ新しいブックに再構成し、書式・コメント・リンク・画像・元のシート名は保持しません。日付はExcelの数値になる場合があります。旧xls・xlsm・PDF・Wordは未対応です。</p></details>
+   <div id="sheet-panel" hidden><h4>取り出すシート</h4><div id="sheet-list"></div><label class="checkbox-label"><input id="include-hidden" type="checkbox">表示された隠しシート・隠し行列の内容を含めることを確認しました</label><button id="select-sheets">選択したセルをプレビュー</button><p id="workbook-warnings" class="hint"></p></div>
+   <label for="source">元の内容</label><textarea id="source" rows="8" autocomplete="off" spellcheck="false" placeholder="ここに文章を貼り付けてください。まずは架空のデータでお試しください。"></textarea>
+   <div class="terms-heading"><label for="terms">隠す語句 <span class="label-note">1行に1件・完全一致</span></label><button id="detect" class="subtle">メール・電話の候補を追加</button></div>
+   <textarea id="terms" rows="4" autocomplete="off" spellcheck="false" placeholder="人名・住所なども手動で追加できます" aria-describedby="terms-help"></textarea>
+   <p id="terms-help" class="hint">候補を確認・編集し、不要な語句は削除してください。CSV/TSVは見出しを含む全セルが対象です。</p>
+   <button id="mask" class="primary">指定した語句でマスクを確定</button>
+  </section>
+  <section class="panel output-panel" aria-labelledby="output-heading">
+   <div class="panel-heading"><span class="step">2</span><div><h3 id="output-heading">AIに渡す内容</h3><p>隠し残しがないか、原文と見比べます。</p></div></div>
+   <label for="output">マスク後の内容 <span class="label-note">確認用</span></label><textarea id="output" rows="15" readonly placeholder="マスクを確定すると、ここに結果が表示されます。" aria-describedby="output-help"></textarea>
+   <p id="output-help" class="review-note">未指定の情報は残ります。送信前に必ず目視してください。AIへの自動送信機能はありません。</p>
+   <p class="hint export-limit">表は値のみで保存します。書式・数式は保持せず、CSV/TSVの一部の値は安全化のため変更します。</p>
+   <button id="download" disabled>マスク済みファイルを保存</button>
+   <details class="format-details"><summary>CSV・TSVの保存について</summary><p class="hint">値のみ出力します。数式開始記号のセルには安全化のため先頭に ' を追加し、改行・引用形式も再構成します。元ファイルのバイト単位の復元や数式維持は保証しません。</p></details>
+   <div class="next-step"><strong>返答が届いたら</strong><p>このページを閉じずに、下の「返答を復元」へ。あとで復元する場合は、対応表を先に暗号化保存してください。</p><a href="#restore-section">返答を復元する</a></div>
+  </section>
+ </div>
+ <section class="panel restore-panel" id="restore-section" aria-labelledby="restore-heading">
+  <div class="panel-heading"><span class="step">3</span><div><h3 id="restore-heading">AIの返答を元の表記に戻す</h3><p>同じ対応表を使って、登録したマスク記号だけを復元します。</p></div></div>
+  <div class="restore-grid"><div><label for="reply">マスク記号を含む返答</label><textarea id="reply" rows="7" autocomplete="off" spellcheck="false" placeholder="AIの返答をここに貼り付けてください"></textarea><button id="restore">対応表を使って復元</button></div><div><label for="restored">復元結果 <span class="sensitive-label">個人情報を含みます</span></label><textarea id="restored" rows="7" readonly placeholder="復元した内容がここに表示されます"></textarea></div></div>
+  <p class="hint">AIが変更・省略した記号は戻せません。未知・認識可能な壊れた記号があれば復元を停止します。対応表の内容をAIへ渡さないでください。</p>
+ </section>
+ <section class="panel map-panel" id="map-section" aria-labelledby="map-heading">
+  <div class="panel-heading"><div><h3 id="map-heading">対応表を自分で保管する</h3><p>ページを閉じると失われます。あとで復元する場合だけ、暗号化して保存します。</p></div></div>
+  <div class="map-grid"><div><label for="password">保存・読み込み用パスフレーズ <span class="label-note">12文字以上</span></label><input id="password" type="password" autocomplete="new-password" aria-describedby="password-help"><p id="password-help" class="hint">パスフレーズを忘れると復元できません。対応表と別に管理してください。</p><button id="export">対応表を暗号化して保存</button></div><div class="map-import"><label for="import">暗号化対応表を読み込む</label><input id="import" type="file" accept=".json"><p class="hint">現在の対応表を置き換えます。読み込み前に、パスフレーズ欄へ入力してください。</p></div></div>
+  <div class="reset-row"><div><strong>この作業を終える</strong><p class="hint">消去は表示と参照の破棄です。端末メモリの完全消去やダウンロード済みファイルの削除は保証しません。</p></div><button id="clear" class="danger">入力・対応表をすべて消す</button></div>
+ </section>
+ <p id="status" role="status" aria-live="polite"></p>
+</main>
+<footer><span>ことばの預かり箱</span><p>入力の外部送信なし · 外部フォントなし · 解析タグなし<br>可逆マスクは仮名化です。安全性や匿名性を保証するものではありません。</p></footer>
+</body></html>
