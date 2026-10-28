@@ -88,8 +88,23 @@ try{
   await page.locator('#format').selectOption('csv');await click('#review-matches');assert.match(await page.locator('#status').innerText(),/テキスト形式のみ/);assert.ok(await page.locator('#review-panel').isHidden());
   await page.locator('#format').selectOption('text');
   await documentView('terms');await page.locator('#terms').fill('');await documentView('source');
+  const rulesOriginal='氏名：試験 太郎\n住所：東京都架空市試験町1丁目2番地3\nIP 192.0.2.1 [2001:db8::1]\nversion: 1.2.3.4';
+  await page.locator('#source').fill(rulesOriginal);await documentView('terms');await click('#detect');
+  assert.equal(await page.locator('#terms').inputValue(),'','Detection must not silently apply candidates');
+  assert.ok(await page.locator('#candidate-panel').isVisible());
+  const values=await page.locator('#candidate-list input').evaluateAll(xs=>xs.map(x=>x.value));
+  for(const value of ['試験 太郎','東京都架空市試験町1丁目2番地3','192.0.2.1','2001:db8::1'])assert.ok(values.includes(value),value);
+  assert.ok(!values.includes('1.2.3.4'));
+  await page.locator('#candidate-list input').evaluateAll(xs=>{for(const x of xs)if(x.value==='192.0.2.1')x.click();});
+  for(const width of [390,1280]){await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await fs.mkdir(path.join(base,'visual-evidence'),{recursive:true});await page.screenshot({path:path.join(base,'visual-evidence',`rule-candidates-${width}.png`),fullPage:true});}
+  await page.setViewportSize({width:390,height:844});await click('#apply-candidates');assert.ok(await page.locator('#status').isVisible(),'Applied candidate feedback stays outside the hidden panel');
+  assert.ok(!(await page.locator('#terms').inputValue()).includes('192.0.2.1'));assert.ok(await page.locator('#candidate-panel').isHidden());
+  await click('#mask');const rulesMasked=await page.locator('#output').inputValue();assert.ok(rulesMasked.includes('192.0.2.1'));assert.ok(!rulesMasked.includes('試験 太郎'));
+  await click('#save-map-shortcut');assert.ok(await page.locator('#password').evaluate(el=>el===document.activeElement));assert.match(await page.locator('#map-summary').innerText(),/未保存/);
+  await page.screenshot({path:path.join(base,'visual-evidence','map-next-390.png'),fullPage:true});
+  await click('#clear');assert.ok(await page.locator('#save-map-shortcut').isDisabled());await mode('mask');await documentView('source');
   const original='合成人名サンプルです。synthetic@example.test\n電話090-1111-2222';
-  await page.locator('#source').fill(original);await documentView('terms');await click('#detect');
+  await page.locator('#source').fill(original);await documentView('terms');await click('#detect');await click('#apply-candidates');
   await page.locator('#terms').fill((await page.locator('#terms').inputValue())+'\n合成人名サンプル');await click('#mask');
   let masked=await page.locator('#output').inputValue();assert.ok(await page.locator('#status').isVisible(),'Mask status remains in the active narrow result view');
   // Synthetic-only visual evidence, kept out of the static build allowlist.
@@ -127,9 +142,9 @@ try{
   await page.locator('#reply').fill('[[MASK_broken');assert.equal(await page.locator('#restored').inputValue(),'');
   await click('#restore');assert.equal(await page.locator('#restored').inputValue(),'');
   assert.ok(await page.locator('#status').evaluate(el=>{const r=el.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight;}),'Restore error feedback must be in the viewport');
-  await mode('map');await page.locator('#password').fill('synthetic-passphrase');
+  await mode('mask');await documentView('output');assert.match(await page.locator('#map-state').innerText(),/未保存/);await click('#save-map-shortcut');assert.ok(await page.locator('#password').evaluate(el=>el===document.activeElement));await page.locator('#password').fill('synthetic-passphrase');
   const encryptedPromise=page.waitForEvent('download');await click('#export');const encrypted=await encryptedPromise;
-  assert.equal(encrypted.suggestedFilename(),'private-map.encrypted.json');assert.equal(await page.locator('#password').inputValue(),'');
+  assert.equal(encrypted.suggestedFilename(),'private-map.encrypted.json');assert.equal(await page.locator('#password').inputValue(),'');assert.match(await page.locator('#map-summary').innerText(),/ダウンロードを開始済み/);
   const encryptedPath=await encrypted.path();assert.ok(encryptedPath);
   const encryptedText=await fs.readFile(encryptedPath,'utf8');assert.ok(!encryptedText.includes('synthetic@example.test'));
   await page.locator('#password').fill('incorrect-passphrase');await page.locator('#import').setInputFiles(encryptedPath);await idle();
@@ -140,7 +155,7 @@ try{
   await mode('restore');await page.locator('#reply').fill(masked);await click('#restore');assert.equal(await page.locator('#restored').inputValue(),original);
   await mode('mask');await documentView('source');
   // Editing input invalidates both visible output and downloadable workbook state.
-  await page.locator('#source').fill('new synthetic input');assert.equal(await page.locator('#output').inputValue(),'');assert.equal(await page.locator('#restored').inputValue(),'');assert.ok(await page.locator('#download').isDisabled());
+  await page.locator('#source').fill('new synthetic input');assert.match(await page.locator('#map-state').innerText(),/以前のマスク／読込用/);assert.equal(await page.locator('#output').inputValue(),'');assert.equal(await page.locator('#restored').inputValue(),'');assert.ok(await page.locator('#download').isDisabled());
   await mode('map');await click('#clear');await mode('mask');await documentView('source');
 
   // Fixture uses the application's runtime writer, then edits bounded OOXML bytes only.

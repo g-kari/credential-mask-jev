@@ -14,3 +14,5 @@
 @media(min-width:721px){.editor-grid .document-text{flex:0 0 auto;height:max(420px,calc(100svh - 480px))}}
 
 button.primary:disabled{background:#2b3039;color:#a9b1be;border-color:var(--line);cursor:not-allowed}
+
+#candidate-list{max-height:320px;overflow:auto;margin:12px 0}#candidate-list label{display:flex;gap:8px;min-height:44px;padding:10px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}#candidate-list label span{font-size:.85rem;color:var(--text);min-width:0}#candidate-list small{display:block;font-size:.72rem;color:var(--muted)}#candidate-panel{margin-top:12px}.output-footer .map-next{grid-column:1/-1;border-top:1px solid var(--line);padding-top:10px}.output-footer .map-next button{width:100%;margin:0}.map-next .hint{margin:4px 0 10px}

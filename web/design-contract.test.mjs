@@ -18,3 +18,8 @@ test('studio has real mask/restore/map and narrow-screen document controls',()=>
  for(const value of ['source','terms','output'])assert.ok(html.includes(`data-document="${value}"`));
  assert.match(html,/aria-pressed="true"/);assert.match(html,/class="tool-rail"/);
 });
+
+test('rule review and explicit encrypted-map shortcut stay local and deliberate',()=>{
+ for(const id of ['candidate-panel','candidate-list','candidate-count','apply-candidates','map-state','map-summary','save-map-shortcut'])assert.ok(html.includes(`id="${id}"`));
+ assert.match(html,/誤検出・見逃し/);assert.match(html,/マスク文そのものの暗号化ではありません/);
+});

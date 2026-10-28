@@ -74,3 +74,11 @@ For plain text, select a phrase in the source and choose 選択した語句を�
 対象箇所を確認 shows a safe text-node/mark rendering using the same longest-first matching as masking. It never sends source data. Editing source/terms/format or loading/clearing data removes stale review contents. Review is limited to 50,000 UTF-16 units and 1,000 matches; exceeding a limit reports an error instead of displaying a partial document. Marks do not mean that unmarked content is safe.
 
 CSV/TSV/XLSX retain existing cell-aware masking, but selection/highlight shortcuts are deliberately unavailable for those formats: raw syntax or sheet labels must not be mistaken for cell values. Use the terms field and compare original/result cells. Runtime allowlist now contains 18 files.
+
+## Reviewed rule candidates and map-saving flow
+
+Rule candidates now go to an explicit checkbox review before entering the mask-term list. Labels/reasons are hints, not certified PII identification. IP-like/version strings and names/addresses can be ambiguous; review exclusions and add missed values manually. CSV/TSV and selected XLSX cells are considered as cell values, not raw workbook metadata; cross-cell name/address labels may be missed. Editing input/terms or changing the file invalidates the candidate list. Core masking, crypto and XLSX handling remain unchanged.
+
+After masking, the result pane links directly to encrypted-map management and shows map count/download-start state. The shortcut does not auto-download or persist anything. It focuses the existing passphrase input; AES-GCM/PBKDF2 and file format are unchanged. A download-start indicator is not proof that the browser saved the file: check its destination. The mapping, not the masked document, is encrypted. Keep the passphrase separately; losing it is unrecoverable. Runtime allowlist:19 files.
+
+IP syntax reference: RFC3986 §3.2.2 https://www.rfc-editor.org/rfc/rfc3986#section-3.2.2 . Detection intentionally rejects leading-zero dotted decimals and IPv6 zones; it is not a complete URL parser. Labeled/honorific names and prefecture/municipality/street-number addresses are bounded heuristics, not a validated Japanese NER model.

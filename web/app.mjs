@@ -1,18 +1,22 @@
+import {ruleCandidates,RULE_METADATA} from './rule-candidates.mjs';
 import {selectedTerm,reviewSegments} from './selection-review.mjs';
-import {candidates,mask,restore,parseDelimited,serializeDelimited,seal,unseal} from './core.mjs';
+import {mask,restore,parseDelimited,serializeDelimited,seal,unseal} from './core.mjs';
 import {maskWorkbook,workbookPreview} from './workbook-mask.mjs';
 const $=id=>document.getElementById(id);let mapping=[],resultFormat='text',busy=false,workbook=null,selectedSheets=null,maskedWorkbook=null;
+let mapExportStarted=false,mapCurrent=false;
+function mapState(){const count=mapping.length;$('save-map-shortcut').disabled=!count;$('map-state').textContent=count?`復元用の対応表 ${count}件。${mapCurrent?'':'現在の入力への適用結果ではなく、以前のマスク／読込用です。'}${mapExportStarted==='imported'?'暗号化ファイルから読み込んだ対応表です。':mapExportStarted?'暗号化ダウンロードを開始済みです。保存先を確認してください。':'未保存です。あとで復元するなら暗号化保存してください。'}`:'復元用の対応表はまだありません。';$('map-summary').textContent=$('map-state').textContent;}
+function clearCandidates(){$('candidate-list').replaceChildren();$('candidate-panel').hidden=true;}
 const xlsx=()=>import('./xlsx-client.mjs');
 const status=s=>{$('status').textContent=s;};
 const run=fn=>async(event)=>{if(busy)return;const trigger=event?.currentTarget;busy=true;const main=document.querySelector('main');main.inert=true;main.setAttribute('aria-busy','true');try{await fn();}catch(e){status(e.name==='OperationError'?'復号できません。パスフレーズかファイルを確認してください。':e.message);}finally{busy=false;main.inert=false;main.removeAttribute('aria-busy');
  // Keep feedback beside the initiating control, never over a focused field.
  if(trigger instanceof HTMLElement&&main.contains(trigger)&&$('status').textContent){
-  const anchor=trigger.closest('.terms-heading,.file-controls')??trigger.closest('label')??trigger;
+  const anchor=trigger.closest('.terms-heading,.file-controls,.candidate-tools')??trigger.closest('label')??trigger;
   $('status').dataset.action=trigger.id;anchor.after($('status'));$('status').scrollIntoView({block:'nearest',behavior:'instant'});
  }
 }};
 function save(value,name,type){const url=URL.createObjectURL(new Blob([value],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-function dirty(){ $('review-content').replaceChildren();$('review-panel').hidden=true;$('review-summary').textContent=''; $('output').value='';$('restored').value='';$('download').disabled=true;maskedWorkbook=null; }
+function dirty(){ mapCurrent=false;mapState();clearCandidates(); $('review-content').replaceChildren();$('review-panel').hidden=true;$('review-summary').textContent=''; $('output').value='';$('restored').value='';$('download').disabled=true;maskedWorkbook=null; }
 function resetWorkbook(){workbook=null;selectedSheets=null;$('sheet-panel').hidden=true;$('sheet-list').replaceChildren();$('include-hidden').checked=false;$('source').readOnly=false;}
 const previewSheets=workbookPreview;
 $('source').addEventListener('input',dirty);$('terms').addEventListener('input',dirty);$('format').addEventListener('change',dirty);
@@ -31,7 +35,21 @@ $('file').addEventListener('change',run(async()=>{
 }));
 $('include-hidden').addEventListener('change',()=>{selectedSheets=null;$('source').value='';dirty();});
 $('select-sheets').onclick=run(()=>{if(!workbook)throw Error('Excelを読み込んでください');const sheets=[...$('sheet-list').querySelectorAll('input:checked')].map(i=>workbook.sheets[Number(i.dataset.index)]);if(!sheets.length)throw Error('シートを選択してください');if(sheets.some(s=>s.hidden||s.hiddenRows||s.hiddenColumns)&&!$('include-hidden').checked)throw Error('隠れた内容を含める確認が必要です');selectedSheets=sheets;$('source').value=previewSheets(sheets);dirty();status('選択した全セルを表示しました。機微情報を指定してください。');});
-$('detect').onclick=run(()=>{const set=new Set([...$('terms').value.split('\n'),...candidates($('source').value)]);$('terms').value=[...set].filter(Boolean).join('\n');dirty();status('候補を追加しました。人名・住所などは手動で指定してください。');});
+$('detect').onclick=run(()=>{
+ clearCandidates();const format=$('format').value;
+ if(format==='xlsx'&&!selectedSheets)throw Error('先にExcelのシートを選択してプレビューしてください');
+ const input=format==='xlsx'?selectedSheets.flatMap(s=>s.rows.flat()).filter(v=>v!==null).join('\n'):format==='csv'||format==='tsv'?parseDelimited($('source').value,format==='csv'?',':'\t').flat().join('\n'):$('source').value;
+ const found=ruleCandidates(input);
+ for(const candidate of found){const label=document.createElement('label'),check=document.createElement('input'),text=document.createElement('span'),reason=document.createElement('small');check.type='checkbox';check.checked=true;check.value=candidate.value;text.textContent=candidate.value;reason.textContent=`${candidate.kind} — ${candidate.reason}`;text.append(reason);label.append(check,text);$('candidate-list').append(label);}
+ $('candidate-rule-help').textContent=RULE_METADATA.missing+' '+RULE_METADATA.ambiguous;$('candidate-panel').hidden=false;$('candidate-count').textContent=`${found.length}件の候補。誤検出はチェックを外してください。未検出の情報も確認してください。`;$('apply-candidates').disabled=!found.length;status('候補を表示しました。確認してから隠す語句に追加してください。');
+});
+$('apply-candidates').onclick=run(()=>{
+ const checked=[...$('candidate-list').querySelectorAll('input:checked')].map(x=>x.value);
+ if(!checked.length)throw Error('追加する候補を選択してください');
+ const next=[...new Set([...$('terms').value.split('\n').filter(Boolean),...checked])];
+ if(next.length>500||next.reduce((n,s)=>n+s.length,0)>100000)throw Error('指定語は500件・合計10万文字以下にしてください');
+ $('terms').value=next.join('\n');dirty();status('確認した候補を追加しました。適用予定箇所と未指定の情報を確認してマスクしてください。');
+});
 $('mask').onclick=run(()=>{
   if(mapping.length&&!confirm('現在の対応表を新しく作り直します。以前の返答は新しい表では復元できません。必要なら先に暗号化保存してください。'))return;
   const format=$('format').value,raw=$('source').value;
@@ -45,14 +63,14 @@ $('mask').onclick=run(()=>{
   const apply=value=>{let out='';for(let i=0;i<value.length;){const e=m.map.find(e=>value.startsWith(e.value,i));if(e){out+=e.token;i+=e.value.length;}else out+=value[i++];}return out;};
   const book=workbookResult?.workbook??null;
   const output=book?previewSheets(book):rows?serializeDelimited(rows.map(row=>row.map(apply)),format==='csv'?',':'\t'):m.output;
-  if(output.length>8_000_000)throw Error('出力が8百万文字を超えます');mapping=m.map;resultFormat=format;$('output').value=output;
+  if(output.length>8_000_000)throw Error('出力が8百万文字を超えます');mapping=m.map;mapExportStarted=false;mapCurrent=true;mapState();resultFormat=format;$('output').value=output;
   maskedWorkbook=book;$('download').disabled=false;$('restored').value='';status('マスクしました。未指定の情報が残っていないか確認してください。');
 });
 $('download').onclick=run(async()=>{if(!confirm('原文とマスク後を確認し、未指定の機微情報が残る可能性を理解しました。保存しますか？'))return;if(resultFormat==='xlsx'){if(!maskedWorkbook)throw Error('先にマスクしてください');save(await(await xlsx()).writeValuesXlsx(maskedWorkbook),'masked.xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');}else save($('output').value,`masked.${resultFormat==='text'?'txt':resultFormat}`,'text/plain;charset=utf-8');});
 $('restore').onclick=run(()=>{$('restored').value='';if(!mapping.length)throw Error('対応表がありません');$('restored').value=restore($('reply').value,mapping);status('登録済みの記号だけ復元しました。');});
-$('export').onclick=run(async()=>{try{if(!mapping.length)throw Error('対応表がありません');const encrypted=await seal(mapping,$('password').value);save(encrypted,'private-map.encrypted.json','application/json');status('対応表を暗号化して保存しました。パスフレーズは別に管理してください。');}finally{$('password').value='';}});
-$('import').addEventListener('change',run(async()=>{try{const f=$('import').files[0];if(!f)return;if(f.size>8_000_000)throw Error('ファイルが大きすぎます');if(mapping.length&&!confirm('現在の対応表を置き換えますか？'))return;const next=await unseal(await f.text(),$('password').value);mapping=next;dirty();status('対応表を読み込みました。返答を貼り付けて復元できます。');}finally{$('password').value='';$('import').value='';}}));
-$('clear').onclick=run(()=>{if(!confirm('入力と対応表を消します。暗号化保存していない対応表は復元できません。続けますか？'))return;mapping=[];resetWorkbook();dirty();for(const id of ['source','terms','output','reply','restored','password','file','import'])$(id).value='';$('download').disabled=true;status('入力と対応表を破棄しました。保存済みファイルは削除していません。');});
+$('export').onclick=run(async()=>{try{if(!mapping.length)throw Error('対応表がありません');const encrypted=await seal(mapping,$('password').value);save(encrypted,'private-map.encrypted.json','application/json');mapExportStarted=true;mapState();status('暗号化対応表のダウンロードを開始しました。保存先を確認し、パスフレーズは別に管理してください。');}finally{$('password').value='';}});
+$('import').addEventListener('change',run(async()=>{try{const f=$('import').files[0];if(!f)return;if(f.size>8_000_000)throw Error('ファイルが大きすぎます');if(mapping.length&&!confirm('現在の対応表を置き換えますか？'))return;const next=await unseal(await f.text(),$('password').value);mapping=next;mapExportStarted='imported';mapState();dirty();status('対応表を読み込みました。返答を貼り付けて復元できます。');}finally{$('password').value='';$('import').value='';}}));
+$('clear').onclick=run(()=>{if(!confirm('入力と対応表を消します。暗号化保存していない対応表は復元できません。続けますか？'))return;mapping=[];mapExportStarted=false;mapState();resetWorkbook();dirty();for(const id of ['source','terms','output','reply','restored','password','file','import'])$(id).value='';$('download').disabled=true;status('入力と対応表を破棄しました。保存済みファイルは削除していません。');});
 window.addEventListener('beforeunload',e=>{if(mapping.length){e.preventDefault();e.returnValue='';}});
 
 // Presentation-only navigation. Documents and maps stay in the same DOM/memory.
@@ -92,3 +110,6 @@ $('review-matches').onclick=run(()=>{
  $('review-content').append(fragment);$('review-summary').textContent=`${result.terms}語句・${result.count}箇所。色のない部分にも個人情報が残る可能性があります。`;
  $('review-panel').hidden=false;status('適用予定箇所を表示しました。原文と指定語を変えると確認表示は消えます。');
 });
+
+$('save-map-shortcut').onclick=()=>{if(busy||!mapping.length)return;showMode('map');$('password').focus();};
+mapState();
