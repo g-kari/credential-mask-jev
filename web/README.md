@@ -25,9 +25,9 @@ Use Node24 for synthetic functional tests:
 node --test web/*.test.mjs
 ```
 
-Serve `web/` as a static HTTPS site. Include local module/vendor files and `_headers`; do not include originals, maps, personal fixtures or unrelated workspace files. Keep all runtime code same-origin. Read `vendor/PROVENANCE.md` and retained licenses.
+Run `node web/build-static.mjs` from the repository root and serve the freshly generated `dist/` as a static HTTPS site. The fixed allowlist excludes test files, package manifests and node_modules. Include local module/vendor files and `_headers`; do not include originals, maps, personal fixtures or unrelated workspace files. Keep all runtime code same-origin. Read `vendor/PROVENANCE.md` and retained licenses.
 
-Browser integration and deployment verification are pending. The visible development warning is intentional; **do not use real personal information yet**. Node functional tests are not a complete security audit or a substitute for mobile/Worker/CSP/browser checks. The existing Python CLI remains separate; its mapping file format is not compatible with this web implementation.
+Chrome 155 synthetic browser checks passed on GitHub Actions: text masking/restoration, encrypted maps, Worker-based XLSX import/export, hidden-data consent, response headers and downloaded values. Mobile viewport was tested, not an actual mobile device. Other browsers and deployment verification remain pending. This is a trial version; start with synthetic data. These checks are not a complete security audit or a guarantee of anonymization. The existing Python CLI remains separate; its mapping file format is not compatible with this web implementation.
 
 ### Synthetic browser acceptance check
 

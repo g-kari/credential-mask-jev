@@ -1,7 +1,7 @@
 <!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'none'; worker-src 'self'; img-src 'none'; base-uri 'none'; form-action 'none'">
 <title>ことばの預かり箱 — 可逆マスク試作</title><link rel="stylesheet" href="style.css"><script type="module" src="app.mjs"></script></head>
-<body><header><h1>ことばの預かり箱</h1><p>AIに渡す文章から、個人情報をいったん取り分ける。</p><strong>開発版・実ブラウザーは未検証。実データで使用しないでください</strong></header>
+<body><header><h1>ことばの預かり箱</h1><p>AIに渡す文章から、個人情報をいったん取り分ける。</p><strong>試用版・Chromeの合成データで動作確認済み。まず架空のデータでお試しください</strong></header>
 <main><aside><b>仮名化であり、完全な匿名化ではありません。</b> 文脈・職業・日付などから本人が推測されることがあります。自動候補には見逃しがあります。入力・対応表はこのページのメモリで扱い、外部送信しない設計です。ブラウザー拡張や端末自体の安全性は別途必要です。</aside>
 <section><h2>1. 元の文章・表</h2><label>形式<select id="format"><option value="text">テキスト</option><option value="csv">CSV（UTF-8）</option><option value="tsv">TSV（UTF-8）</option><option value="xlsx">Excel（.xlsx・値のみ）</option></select></label>
 <label>ファイルを開く（2 MB以下）<input id="file" type="file" accept=".txt,.csv,.tsv,.xlsx"></label><p class="hint">Excelは数式を含むブックを拒否します。値のみ新しいブックに再構成し、書式・コメント・リンク・画像・元のシート名は保持しません。日付はExcelの数値になる場合があります。旧xls・xlsm・PDF・Wordは未対応です。</p>

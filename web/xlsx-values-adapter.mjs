@@ -1,6 +1,6 @@
-// NOT wired to UI; requires a vetted, bundled OOXML parser and bounded ZIP gate.
+// Values adapter used behind the bounded ZIP and strict XML gates in xlsx-io.mjs.
 // This converts an already-parsed workbook into a deliberately minimal values model.
-// It does not parse ZIP/XML or write XLSX and must not be advertised as XLSX support.
+// This module alone does not parse ZIP/XML or write XLSX.
 export function cellPosition(address){
   const m=/^([A-Z]{1,3})([1-9]\d{0,6})$/.exec(address);
   if(!m)throw Error('セル座標が不正です');

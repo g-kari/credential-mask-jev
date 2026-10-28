@@ -20,6 +20,7 @@ jobs:
         with:
           node-version: '24'
       - run: node --test web/*.test.mjs
+      - run: node web/build-static.mjs
       - run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: web
       - run: command -v google-chrome && google-chrome --version
