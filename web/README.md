@@ -66,3 +66,11 @@ CI installs Japanese system fonts only in its ephemeral runner (no app font down
 The owner selected the dark editing-studio direction. It replaces stacked cards with a compact application header/tool rail, aligned equal-height source/result editors and a candidate inspector. Mask, restoration and encrypted-map management are separate presentation modes; switching modes preserves the existing DOM values and in-memory map. Narrow screens switch explicitly between source, terms and output. The actual opaque tokens are unchanged, not the illustrative short labels from the concept image.
 
 No processing dependency, external asset request or security/hosting setting is added. All file-format, consent and privacy limits remain. Browser acceptance additionally tests repeated mode switching/state retention and equal desktop editor geometry; screenshots are compared with the selected concept, not only tested for overflow.
+
+## Selection-assisted review
+
+For plain text, select a phrase in the source and choose 選択した語句を追加. This adds the exact value (including surrounding spaces), targeting every identical occurrence, not only the selected occurrence. Empty/whitespace-only, multiline/tab and partial grapheme selections are rejected; duplicates do not invalidate an existing result. No Unicode normalization is performed.
+
+対象箇所を確認 shows a safe text-node/mark rendering using the same longest-first matching as masking. It never sends source data. Editing source/terms/format or loading/clearing data removes stale review contents. Review is limited to 50,000 UTF-16 units and 1,000 matches; exceeding a limit reports an error instead of displaying a partial document. Marks do not mean that unmarked content is safe.
+
+CSV/TSV/XLSX retain existing cell-aware masking, but selection/highlight shortcuts are deliberately unavailable for those formats: raw syntax or sheet labels must not be mistaken for cell values. Use the terms field and compare original/result cells. Runtime allowlist now contains 18 files.

@@ -2,7 +2,7 @@ import {mkdir,copyFile,lstat} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root=path.dirname(fileURLToPath(import.meta.url));
-export const files=['index.html','style.css','_headers','app.mjs','core.mjs','workbook-mask.mjs','xlsx-values-adapter.mjs','xlsx-io.mjs','xlsx-client.mjs','xlsx-worker.mjs','xlsx-xml-validation.mjs','vendor/xlsx.mjs','vendor/saxes.mjs','vendor/LICENSE-sheetjs.txt','vendor/LICENSE-saxes.txt','vendor/LICENSE-xmlchars.txt','vendor/PROVENANCE.md'];
+export const files=['index.html','style.css','_headers','app.mjs','selection-review.mjs','core.mjs','workbook-mask.mjs','xlsx-values-adapter.mjs','xlsx-io.mjs','xlsx-client.mjs','xlsx-worker.mjs','xlsx-xml-validation.mjs','vendor/xlsx.mjs','vendor/saxes.mjs','vendor/LICENSE-sheetjs.txt','vendor/LICENSE-saxes.txt','vendor/LICENSE-xmlchars.txt','vendor/PROVENANCE.md'];
 export async function build(output){
  // Refuse an existing directory rather than accidentally retaining stale/private files.
  for(const file of files){const s=await lstat(path.join(root,file));if(!s.isFile()||s.isSymbolicLink())throw Error('Unexpected runtime asset');}
