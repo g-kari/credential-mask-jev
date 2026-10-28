@@ -1,0 +1,1 @@
+{"name":"credential-mask-jev-web-checks","private":true,"version":"0.0.0","type":"module","scripts":{"test":"node --test *.test.mjs","test:browser":"node browser-check.mjs"},"devDependencies":{"playwright":"1.62.1"}}

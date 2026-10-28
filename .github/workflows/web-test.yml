@@ -1,0 +1,28 @@
+name: web-synthetic-tests
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', '.github/workflows/web-test.yml']
+  pull_request:
+    paths: ['web/**', '.github/workflows/web-test.yml']
+permissions:
+  contents: read
+concurrency:
+  group: web-synthetic-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --test web/*.test.mjs
+      - run: node web/build-static.mjs
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: web
+      - run: command -v google-chrome && google-chrome --version
+      - run: node browser-check.mjs
+        working-directory: web

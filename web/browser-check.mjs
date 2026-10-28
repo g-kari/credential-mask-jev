@@ -1,0 +1,117 @@
+// Synthetic browser functionality checks. Not a security audit or real-data approval.
+import http from 'node:http';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright';
+import {writeValuesXlsx,inspectXlsx,boundedZip,storedZip} from './xlsx-io.mjs';
+
+const base=path.dirname(fileURLToPath(import.meta.url));
+const headerText=await fs.readFile(path.join(base,'_headers'),'utf8');
+const headers={};let allPaths=false;
+for(const line of headerText.split(/\r?\n/)){
+ if(!line.trim()||line.trim().startsWith('#'))continue;
+ if(!/^\s/.test(line)){assert.equal(line.trim(),'/*','Only the all-path header profile is supported');allPaths=true;continue;}
+ assert.ok(allPaths,'Header outside /* profile');const m=/^\s+([^:]+):\s*(.+)$/.exec(line);assert.ok(m,'Malformed _headers line');headers[m[1]]=m[2];
+}
+for(const name of ['Content-Security-Policy','Referrer-Policy','X-Content-Type-Options','X-Frame-Options','Cache-Control','Permissions-Policy'])assert.ok(headers[name],`Missing ${name}`);
+assert.match(headers['Content-Security-Policy'],/worker-src 'self'/);
+assert.match(headers['Content-Security-Policy'],/connect-src 'none'/);
+assert.match(headers['Content-Security-Policy'],/frame-ancestors 'none'/);
+const mime={'.mjs':'text/javascript; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.html':'text/html; charset=utf-8'};
+const server=http.createServer(async(req,res)=>{
+ for(const [name,value] of Object.entries(headers))res.setHeader(name,value);
+ try{
+  if(req.method!=='GET'&&req.method!=='HEAD'){res.writeHead(405);res.end();return;}
+  const pathname=decodeURIComponent(new URL(req.url,'http://127.0.0.1').pathname);
+  const file=path.resolve(base,'.'+(pathname==='/'?'/index.html':pathname));
+  if(!file.startsWith(base+path.sep)||!mime[path.extname(file)])throw Error('Not a static application file');
+  const data=await fs.readFile(file);res.setHeader('Content-Type',mime[path.extname(file)]);res.end(req.method==='HEAD'?undefined:data);
+ }catch{res.statusCode=404;res.setHeader('Content-Type','text/plain; charset=utf-8');res.end('not found');}
+});
+let browser,context,timer;
+try{
+ await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
+ const origin=`http://127.0.0.1:${server.address().port}`;
+ const checks=async()=>{
+  browser=await chromium.launch({channel:'chrome',headless:true,chromiumSandbox:true,timeout:30000});
+  context=await browser.newContext({viewport:{width:390,height:844},acceptDownloads:true,serviceWorkers:'block'});
+  context.setDefaultTimeout(30000);context.setDefaultNavigationTimeout(30000);
+  const external=[],pageErrors=[],workers=[];
+  await context.route('**/*',route=>{
+   const url=route.request().url();
+   if(new URL(url).origin!==origin){external.push(url);return route.abort();}
+   return route.continue();
+  });
+  const page=await context.newPage();page.on('pageerror',error=>pageErrors.push(error.message));
+  page.on('dialog',dialog=>dialog.accept());page.on('worker',worker=>workers.push(worker.url()));
+  const response=await page.goto(origin);assert.ok(response?.ok());
+  const actualHeaders=await response.allHeaders();for(const [name,value] of Object.entries(headers))assert.equal(actualHeaders[name.toLowerCase()],value);
+  const idle=()=>page.waitForFunction(()=>!document.querySelector('main').hasAttribute('aria-busy'));
+  const click=async selector=>{await page.locator(selector).click();await idle();};
+  const original='合成人名サンプルです。synthetic@example.test\n電話090-1111-2222';
+  await page.locator('#source').fill(original);await click('#detect');
+  await page.locator('#terms').fill((await page.locator('#terms').inputValue())+'\n合成人名サンプル');await click('#mask');
+  const masked=await page.locator('#output').inputValue();
+  for(const term of ['合成人名サンプル','synthetic@example.test','090-1111-2222'])assert.ok(!masked.includes(term));
+  assert.ok(masked.includes('[[MASK_'));
+  await page.locator('#reply').fill(masked);await click('#restore');assert.equal(await page.locator('#restored').inputValue(),original);
+  await page.locator('#reply').fill('[[MASK_broken');assert.equal(await page.locator('#restored').inputValue(),'');
+  await click('#restore');assert.equal(await page.locator('#restored').inputValue(),'');
+  await page.locator('#password').fill('synthetic-passphrase');
+  const encryptedPromise=page.waitForEvent('download');await click('#export');const encrypted=await encryptedPromise;
+  assert.equal(encrypted.suggestedFilename(),'private-map.encrypted.json');assert.equal(await page.locator('#password').inputValue(),'');
+  const encryptedPath=await encrypted.path();assert.ok(encryptedPath);
+  const encryptedText=await fs.readFile(encryptedPath,'utf8');assert.ok(!encryptedText.includes('synthetic@example.test'));
+  await page.locator('#password').fill('incorrect-passphrase');await page.locator('#import').setInputFiles(encryptedPath);await idle();
+  assert.equal(await page.locator('#password').inputValue(),'');assert.match(await page.locator('#status').innerText(),/復号できません/);
+  await click('#clear');assert.equal(await page.locator('#source').inputValue(),'');assert.ok(await page.locator('#download').isDisabled());
+  await page.locator('#password').fill('synthetic-passphrase');await page.locator('#import').setInputFiles(encryptedPath);await idle();
+  assert.equal(await page.locator('#password').inputValue(),'');assert.match(await page.locator('#status').innerText(),/読み込みました/);
+  await page.locator('#reply').fill(masked);await click('#restore');assert.equal(await page.locator('#restored').inputValue(),original);
+  // Editing input invalidates both visible output and downloadable workbook state.
+  await page.locator('#source').fill('new synthetic input');assert.equal(await page.locator('#output').inputValue(),'');assert.equal(await page.locator('#restored').inputValue(),'');assert.ok(await page.locator('#download').isDisabled());
+  await click('#clear');
+
+  // Fixture uses the application's runtime writer, then edits bounded OOXML bytes only.
+  const seeds=['合成氏名エクセル','xlsx@example.test','隠し合成氏名'];
+  const fixture=await writeValuesXlsx([{rows:[[seeds[0],seeds[1],0,false,'001','日本語\n改行']]},{rows:[[seeds[2],42,true]]}]);
+  const enc=new TextEncoder(),dec=new TextDecoder();
+  const entries=(await boundedZip(fixture)).map(([name,bytes])=>{
+   let xml=dec.decode(bytes);
+   if(name==='xl/workbook.xml')xml=xml.replace('name="Sheet2"','name="Sheet2" state="veryHidden"');
+   if(name==='xl/worksheets/sheet1.xml')xml=xml.replace('<row r="1"','<row hidden="1" r="1"');
+   return [name,enc.encode(xml)];
+  });
+  const upload=storedZip(entries);
+  await page.locator('#file').setInputFiles({name:'synthetic.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:Buffer.from(upload)});await idle();
+  await page.locator('#sheet-panel').waitFor({state:'visible'});assert.equal(await page.locator('#format').inputValue(),'xlsx');
+  const sheets=page.locator('#sheet-list input');assert.equal(await sheets.count(),2);assert.equal(await sheets.nth(1).isChecked(),false);
+  assert.match(await page.locator('#sheet-list').innerText(),/隠し状態2/);assert.match(await page.locator('#sheet-list').innerText(),/隠し行: 1/);
+  await sheets.nth(1).check();await click('#select-sheets');assert.match(await page.locator('#status').innerText(),/確認が必要/);assert.equal(await page.locator('#source').inputValue(),'');
+  await page.locator('#include-hidden').check();await click('#select-sheets');const preview=await page.locator('#source').inputValue();for(const seed of seeds)assert.ok(preview.includes(seed));
+  await page.locator('#terms').fill(seeds.join('\n'));await click('#mask');const xlsxMasked=await page.locator('#output').inputValue();for(const seed of seeds)assert.ok(!xlsxMasked.includes(seed));
+  const xlsxDownloadPromise=page.waitForEvent('download');await click('#download');const downloaded=await xlsxDownloadPromise;
+  assert.equal(downloaded.suggestedFilename(),'masked.xlsx');const downloadedPath=await downloaded.path();assert.ok(downloadedPath);
+  const outputBytes=new Uint8Array(await fs.readFile(downloadedPath));
+  const inspected=await inspectXlsx(outputBytes);assert.equal(inspected.sheets.length,2);assert.equal(inspected.sheets[0].name,'Sheet1');assert.equal(inspected.sheets[1].name,'Sheet2');
+  const first=inspected.sheets[0].rows[0];assert.equal(first[2],0);assert.equal(first[3],false);assert.equal(first[4],'001');assert.equal(first[5],'日本語\n改行');
+  assert.equal(inspected.sheets[1].rows[0][1],42);assert.equal(inspected.sheets[1].rows[0][2],true);
+  for(const sheet of inspected.sheets){assert.equal(sheet.hidden,0);assert.deepEqual(sheet.hiddenRowPositions,[]);assert.deepEqual(sheet.hiddenColumnPositions,[]);}
+  const unzipped=(await boundedZip(outputBytes)).map(([,bytes])=>dec.decode(bytes)).join('\n');for(const seed of seeds)assert.ok(!unzipped.includes(seed));
+  assert.ok(workers.some(url=>url===origin+'/xlsx-worker.mjs'),'Actual local XLSX Worker was created');
+  await page.locator('#file').setInputFiles({name:'unsupported.bin',mimeType:'application/octet-stream',buffer:Buffer.from('synthetic invalid input')});await idle();
+  assert.match(await page.locator('#status').innerText(),/未対応形式/);assert.equal(await page.locator('#source').inputValue(),'');assert.equal(await page.locator('#output').inputValue(),'');assert.ok(await page.locator('#download').isDisabled());
+  await click('#clear');assert.equal(await page.locator('#sheet-panel').isHidden(),true);assert.equal(await page.locator('#source').inputValue(),'');assert.equal(await page.locator('#password').inputValue(),'');assert.ok(await page.locator('#download').isDisabled());
+  assert.equal(await page.evaluate(()=>localStorage.length),0);assert.equal(await page.evaluate(()=>sessionStorage.length),0);
+  assert.deepEqual(external,[],'Unexpected outbound request attempt');assert.deepEqual(pageErrors,[]);
+  console.log('PASS: response headers, mobile text mask/restore, stale/error clearing, encrypted map correct/wrong passwords, reset, actual XLSX Worker hidden consent and downloaded values/type checks; no external request attempts or Web Storage entries observed.');
+ };
+ await Promise.race([checks(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Browser checks exceeded 90 seconds')),90000);})]);
+}finally{
+ clearTimeout(timer);
+ try{await context?.close();}finally{
+  try{await browser?.close();}finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
+ }
+}
