@@ -78,6 +78,8 @@ try{
    await page.screenshot({path:path.join(base,'visual-evidence',`selection-review-${width}.png`),fullPage:true});
   }
   await page.setViewportSize({width:390,height:844});
+  await documentView('terms');await page.locator('#terms').fill('変更語句');assert.ok(await page.locator('#review-panel').isHidden());assert.equal(await page.locator('#review-content').textContent(),'');
+  await documentView('source');await click('#review-matches');assert.match(await page.locator('#review-summary').innerText(),/0語句・0箇所/);
   await page.locator('#source').fill('変えた原文');assert.ok(await page.locator('#review-panel').isHidden());assert.equal(await page.locator('#review-content').textContent(),'');
   await page.locator('#source').evaluate(el=>el.setSelectionRange(0,0));await click('#add-selection');assert.match(await page.locator('#status').innerText(),/選択してください/);
   await page.locator('#format').selectOption('csv');await click('#review-matches');assert.match(await page.locator('#status').innerText(),/テキスト形式のみ/);assert.ok(await page.locator('#review-panel').isHidden());
