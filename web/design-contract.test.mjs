@@ -12,3 +12,9 @@ test('redesign retains processing controls, labels and local-only policy',()=>{
  assert.match(html,/id="status" role="status" aria-live="polite"/);
  assert.doesNotMatch(html,/<(?:script|link)[^>]+(?:src|href)="https?:/);
 });
+
+test('studio has real mask/restore/map and narrow-screen document controls',()=>{
+ for(const id of ['mask-view','restore-view','map-view'])assert.ok(html.includes(`id="${id}"`));
+ for(const value of ['source','terms','output'])assert.ok(html.includes(`data-document="${value}"`));
+ assert.match(html,/aria-pressed="true"/);assert.match(html,/class="tool-rail"/);
+});

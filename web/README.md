@@ -60,3 +60,9 @@ The workspace now places source and masked output side by side on desktop, stack
 Design guidance: official UI UX Pro Max skill (MIT), upstream commit `28b3b8dee8c976df4fa3e94aed4e092ad43fcb03`, https://github.com/nextlevelbuilder/ui-ux-pro-max-skill . The verified Minimalism/Swiss style result informed grid, spacing and contrast; automatically suggested marketing landing-page layouts were rejected for this operational tool. Japanese system fonts and the existing local-only security model take precedence over external asset recommendations.
 
 CI installs Japanese system fonts only in its ephemeral runner (no app font download), then additionally checks 390px/1280px overflow, 44px action targets, visible keyboard focus, and saves synthetic-only screenshots for visual review. Screenshot artifacts are excluded from the deployed allowlist. A successful test is not a complete accessibility or security audit; actual mobile devices and other browsers remain unverified.
+
+## Selected concept A: quiet editing studio
+
+The owner selected the dark editing-studio direction. It replaces stacked cards with a compact application header/tool rail, aligned equal-height source/result editors and a candidate inspector. Mask, restoration and encrypted-map management are separate presentation modes; switching modes preserves the existing DOM values and in-memory map. Narrow screens switch explicitly between source, terms and output. The actual opaque tokens are unchanged, not the illustrative short labels from the concept image.
+
+No processing dependency, external asset request or security/hosting setting is added. All file-format, consent and privacy limits remain. Browser acceptance additionally tests repeated mode switching/state retention and equal desktop editor geometry; screenshots are compared with the selected concept, not only tested for overflow.

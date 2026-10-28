@@ -7,7 +7,7 @@ const run=fn=>async(event)=>{if(busy)return;const trigger=event?.currentTarget;b
  // Keep feedback beside the initiating control, never over a focused field.
  if(trigger instanceof HTMLElement&&main.contains(trigger)&&$('status').textContent){
   const anchor=trigger.closest('.terms-heading,.file-controls')??trigger.closest('label')??trigger;
-  anchor.after($('status'));$('status').scrollIntoView({block:'nearest',behavior:'instant'});
+  $('status').dataset.action=trigger.id;anchor.after($('status'));$('status').scrollIntoView({block:'nearest',behavior:'instant'});
  }
 }};
 function save(value,name,type){const url=URL.createObjectURL(new Blob([value],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
@@ -53,3 +53,24 @@ $('export').onclick=run(async()=>{try{if(!mapping.length)throw Error('対応表�
 $('import').addEventListener('change',run(async()=>{try{const f=$('import').files[0];if(!f)return;if(f.size>8_000_000)throw Error('ファイルが大きすぎます');if(mapping.length&&!confirm('現在の対応表を置き換えますか？'))return;const next=await unseal(await f.text(),$('password').value);mapping=next;dirty();status('対応表を読み込みました。返答を貼り付けて復元できます。');}finally{$('password').value='';$('import').value='';}}));
 $('clear').onclick=run(()=>{if(!confirm('入力と対応表を消します。暗号化保存していない対応表は復元できません。続けますか？'))return;mapping=[];resetWorkbook();dirty();for(const id of ['source','terms','output','reply','restored','password','file','import'])$(id).value='';$('download').disabled=true;status('入力と対応表を破棄しました。保存済みファイルは削除していません。');});
 window.addEventListener('beforeunload',e=>{if(mapping.length){e.preventDefault();e.returnValue='';}});
+
+// Presentation-only navigation. Documents and maps stay in the same DOM/memory.
+const modes=['mask','restore','map'];
+function showMode(mode){
+ if(busy||!modes.includes(mode))return;
+ for(const value of modes)$(value+'-view').hidden=value!==mode;
+ for(const button of document.querySelectorAll('[data-mode]'))button.setAttribute('aria-pressed',String(button.dataset.mode===mode));
+}
+function showDocument(value){
+ if(busy||!['source','terms','output'].includes(value))return;
+ document.body.dataset.document=value;
+ for(const button of document.querySelectorAll('button[data-document]'))button.setAttribute('aria-pressed',String(button.dataset.document===value));
+}
+for(const button of document.querySelectorAll('[data-mode]'))button.addEventListener('click',()=>showMode(button.dataset.mode));
+for(const button of document.querySelectorAll('button[data-document]'))button.addEventListener('click',()=>showDocument(button.dataset.document));
+const confirmMask=$('mask').onclick;
+$('mask').onclick=async event=>{await confirmMask(event);if($('output').value){showDocument('output');if(matchMedia('(max-width:720px)').matches){document.querySelector('.output-toolbar').after($('status'));$('output').focus({preventScroll:true});$('status').scrollIntoView({block:'nearest',behavior:'instant'});}}};
+
+document.querySelector('.skip-link').addEventListener('click',event=>{event.preventDefault();if(busy)return;showMode('mask');showDocument('source');$('source').focus();});
+
+matchMedia('(max-width:720px)').addEventListener('change',event=>{if($('status').dataset.action==='mask'){if(event.matches&&document.body.dataset.document==='output')document.querySelector('.output-toolbar').after($('status'));else $('mask').after($('status'));}});
